@@ -1,0 +1,142 @@
+
+<div class="h-screen w-full flex flex-col md:flex-row overflow-hidden bg-slate-900 text-white selection:bg-yellow-500 selection:text-black">
+  
+  <!-- Sidebar / Workspace Area (Left) -->
+  <div class="flex-1 flex flex-col relative h-full">
+    
+    <!-- Header -->
+    <header class="h-16 border-b border-slate-700 flex items-center px-6 bg-slate-900/90 backdrop-blur z-20 justify-between">
+      <div class="flex items-center gap-2">
+        <span class="material-icons-round text-yellow-400 text-3xl">image_edit_auto</span>
+        <h1 class="text-xl font-bold tracking-tight">Nano <span class="text-yellow-400">Banana</span> Pro</h1>
+      </div>
+      <div class="flex gap-4 text-sm text-slate-400">
+        <button class="hover:text-yellow-400 transition-colors flex items-center gap-1" (click)="reset()">
+          <span class="material-icons-round text-base">restart_alt</span> New
+        </button>
+        <button class="hover:text-yellow-400 transition-colors flex items-center gap-1" (click)="downloadImage()" [class.opacity-50]="!currentImage()" [disabled]="!currentImage()">
+          <span class="material-icons-round text-base">download</span> Export
+        </button>
+      </div>
+    </header>
+
+    <!-- Canvas -->
+    <div class="flex-1 relative bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-800 flex items-center justify-center p-4 overflow-hidden">
+      
+      @if (!currentImage()) {
+        <!-- Upload State -->
+        <div 
+          class="border-2 border-dashed border-slate-600 rounded-2xl p-12 flex flex-col items-center text-center cursor-pointer hover:border-yellow-400 hover:bg-slate-700/30 transition-all duration-300 group"
+          (click)="fileInput.click()"
+          (drop)="onDrop($event)"
+          (dragover)="onDragOver($event)"
+        >
+          <div class="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4 group-hover:bg-yellow-400/20 transition-colors">
+            <span class="material-icons-round text-3xl text-slate-400 group-hover:text-yellow-400">add_a_photo</span>
+          </div>
+          <h3 class="text-lg font-medium text-slate-200">Upload Portrait</h3>
+          <p class="text-slate-500 mt-2 text-sm max-w-xs">Drag & drop or click to upload. Supports JPG, PNG.</p>
+          <input #fileInput type="file" class="hidden" (change)="onFileSelected($event)" accept="image/*">
+        </div>
+      } @else {
+        <!-- Image Viewer -->
+        <div class="relative w-full h-full flex items-center justify-center">
+          <img 
+            [src]="currentImage()" 
+            class="max-w-full max-h-full object-contain shadow-2xl rounded-lg border border-slate-700"
+            alt="Workspace"
+          />
+          
+          @if (isProcessing()) {
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
+              <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mb-4"></div>
+              <p class="text-yellow-400 font-mono animate-pulse">Running Gemini Magic...</p>
+            </div>
+          }
+        </div>
+      }
+      
+      <!-- Compare Toggle (Only if history exists) -->
+      @if (originalImage() && currentImage() !== originalImage() && !isProcessing()) {
+         <button 
+           class="absolute bottom-6 right-6 bg-slate-800/80 backdrop-blur text-xs px-3 py-1 rounded-full border border-slate-600 hover:bg-slate-700 transition"
+           (mousedown)="showOriginal()" 
+           (mouseup)="showCurrent()"
+           (mouseleave)="showCurrent()"
+           (touchstart)="showOriginal()"
+           (touchend)="showCurrent()"
+          >
+           Hold to Compare
+         </button>
+      }
+    </div>
+
+  </div>
+
+  <!-- Right Sidebar: Controls & Chat -->
+  <div class="w-full md:w-96 bg-slate-900 border-l border-slate-800 flex flex-col h-[50vh] md:h-full shadow-xl z-30">
+    
+    <!-- Presets / Tools Tab -->
+    <div class="p-4 border-b border-slate-800">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Quick Styles</h2>
+      <div class="grid grid-cols-2 gap-2">
+        <button (click)="applyPreset('Corporate Headshot')" class="flex items-center gap-2 p-2 rounded bg-slate-800 hover:bg-slate-700 hover:text-yellow-400 transition text-sm text-left">
+           <span class="material-icons-round text-blue-400 text-lg">business_center</span> Business
+        </button>
+        <button (click)="applyPreset('Fitness Model, Muscular, Gym Lighting')" class="flex items-center gap-2 p-2 rounded bg-slate-800 hover:bg-slate-700 hover:text-yellow-400 transition text-sm text-left">
+           <span class="material-icons-round text-red-400 text-lg">fitness_center</span> Fitness
+        </button>
+        <button (click)="applyPreset('Casual Lifestyle, Outdoor, Golden Hour')" class="flex items-center gap-2 p-2 rounded bg-slate-800 hover:bg-slate-700 hover:text-yellow-400 transition text-sm text-left">
+           <span class="material-icons-round text-green-400 text-lg">coffee</span> Casual
+        </button>
+        <button (click)="applyPreset('Cinematic, Moody, Cyberpunk')" class="flex items-center gap-2 p-2 rounded bg-slate-800 hover:bg-slate-700 hover:text-yellow-400 transition text-sm text-left">
+           <span class="material-icons-round text-purple-400 text-lg">movie_filter</span> Artistic
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="flex-1 flex flex-col overflow-hidden bg-slate-900">
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth" #chatContainer>
+        @for (msg of chatMessages(); track $index) {
+          <div [class]="'flex ' + (msg.role === 'user' ? 'justify-end' : 'justify-start')">
+            <div [class]="'max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed ' + (msg.role === 'user' ? 'bg-yellow-500 text-black rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700')">
+              {{ msg.text }}
+            </div>
+          </div>
+        }
+        @if (isProcessing()) {
+           <div class="flex justify-start">
+            <div class="bg-slate-800/50 rounded-2xl px-4 py-2 text-xs text-slate-400 rounded-tl-none flex items-center gap-2">
+               <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+               <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-100"></span>
+               <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-200"></span>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Input Area -->
+      <div class="p-4 bg-slate-900 border-t border-slate-800">
+        <div class="relative">
+          <textarea 
+            #promptInput
+            [disabled]="isProcessing()"
+            (keydown.enter)="$event.preventDefault(); sendMessage(promptInput.value); promptInput.value = ''"
+            placeholder="Describe your edit (e.g. 'Make me more muscular')"
+            class="w-full bg-slate-800 text-white placeholder-slate-500 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 resize-none text-sm shadow-inner"
+            rows="2"
+          ></textarea>
+          <button 
+            [disabled]="isProcessing()"
+            (click)="sendMessage(promptInput.value); promptInput.value = ''"
+            class="absolute right-2 bottom-2 p-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            <span class="material-icons-round text-lg">send</span>
+          </button>
+        </div>
+        <p class="text-[10px] text-slate-600 mt-2 text-center">Powered by Gemini 2.5 Flash & Imagen 4</p>
+      </div>
+    </div>
+
+  </div>
+</div>
